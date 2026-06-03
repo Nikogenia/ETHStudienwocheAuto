@@ -12,53 +12,76 @@ int *readSensor()
     return values;
 }
 
-long calculateValueSum(int input[6]) {
-    long valueSum = 0;
-
-    for (int index = 0; index < 6; index++)
-    {
-        valueSum += input[index];
-    }
-
-    return valueSum;
-}
-
-int calculateLineOffset(int input[6])
+double computeLineError(
+    int *sensorValues,
+    long &valueSum)
 {
     long weightedSum = 0;
-    long valueSum = calculateValueSum(input);
+    valueSum = 0;
 
-    for (int index = 0; index < 6; index++)
+    for (int i = 0; i < 6; i++)
     {
-        weightedSum += (long)input[index] * WEIGHTS[index];
+        int lineStrength = 1023 - sensorValues[i];
+
+        weightedSum +=
+            (long)lineStrength * WEIGHTS[i];
+
+        valueSum += lineStrength;
     }
 
     if (valueSum == 0)
-    {
         return 0;
-    }
 
-    long rounded = 0;
-    if (weightedSum >= 0)
-    {
-        rounded = (weightedSum + valueSum / 2) / valueSum;
-    }
-    else
-    {
-        rounded = (weightedSum - valueSum / 2) / valueSum;
-    }
-
-    return (int)rounded;
+    return (double)weightedSum /
+           (double)valueSum;
 }
 
-double calculatePDCorrection(double currentError, double previousError, double dt)
+double computeLineDistanceFromCenter(
+    int *sensorValues,
+    long &valueSum)
 {
-    double derivative = 0.0;
+    long distanceSum = 0;
+    valueSum = 0;
 
-    if (dt > 0.0)
+    for (int i = 0; i < 6; i++)
     {
-        derivative = (currentError - previousError) / dt;
+        int lineStrength = 1023 - sensorValues[i];
+
+        distanceSum +=
+            (long)lineStrength * abs(WEIGHTS[i]);
+
+        valueSum += lineStrength;
     }
 
-    return (currentError * Kp) + (derivative * Kd);
+    if (valueSum == 0)
+        return 0;
+
+    return (double)distanceSum /
+           (double)valueSum;
+}
+
+bool isAllWhite(int *sensorValues)
+{
+    for (int i = 0; i < 6; i++)
+    {
+        if (sensorValues[i] < WHITE_THRESHOLD)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool isAllBlack(int *sensorValues)
+{
+    for (int i = 0; i < 6; i++)
+    {
+        if (sensorValues[i] > BLACK_THRESHOLD)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }

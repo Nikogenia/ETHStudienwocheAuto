@@ -28,13 +28,34 @@ enum Direction
     BACKWARD = -1
 };
 
-const int WEIGHTS[6] = {-30, -15, -2, 2, 15, 30};
-const int BASE_SPEED = 200;
-const int WHITE_THRESHOLD = 4100;
-const int BLACK_THRESHOLD = 800;
+const int WEIGHTS[6] = {-100, -60, -20, 20, 60, 100};
+const int BASE_SPEED = 170;
 
-const float Kp = 0.0018f;
-const float Kd = 0.00095f;
+enum RobotState
+{
+    FOLLOW_LINE,
+    SEARCH_LINE,
+    STOPPED,
+    INTERSECTION,
+};
+
+RobotState state = FOLLOW_LINE;
+
+double previousError = 0.0;
+double lastKnownError = 0.0;
+
+unsigned long lastLoopMicros = 0;
+unsigned long allBlackStart = 0;
+
+const double KP = 5;
+const double KD = 2;
+
+const int SEARCH_SPEED = 100;
+
+const unsigned long BLACK_HOLD_TIME = 300;
+
+const int WHITE_THRESHOLD = 520;
+const int BLACK_THRESHOLD = 400;
 
 struct motor
 {
