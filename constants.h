@@ -21,14 +21,25 @@ const int SENSOR4 = A2;
 const int SENSOR5 = A1;
 const int SENSOR6 = A0;
 
-const byte FORWARD = 1;
-const byte HALT = 0;
-const byte BACKWARD = -1;
+enum Direction
+{
+    FORWARD = 1,
+    HALT = 0,
+    BACKWARD = -1
+};
+
+const int WEIGHTS[6] = {-30, -15, -2, 2, 15, 30};
+const int BASE_SPEED = 200;
+const int WHITE_THRESHOLD = 4100;
+const int BLACK_THRESHOLD = 800;
+
+const float Kp = 0.0018f;
+const float Kd = 0.00095f;
 
 struct motor
 {
     byte speed = 0;
-    byte direction = HALT;
+    Direction direction = HALT;
     int enablePin;
     int directionPin1;
     int directionPin2;

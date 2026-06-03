@@ -43,7 +43,7 @@ byte getMotorSpeed(motor &motor)
     return motor.speed;
 }
 
-void setMotorDirection(motor &motor, byte direction)
+void setMotorDirection(motor &motor, Direction direction)
 {
     motor.direction = direction;
 }
@@ -51,4 +51,25 @@ void setMotorDirection(motor &motor, byte direction)
 byte getMotorDirection(motor &motor)
 {
     return motor.direction;
+}
+
+void sendSignedMotorCommand(motor &motor, int speed)
+{
+    if (speed > 0)
+    {
+        setMotorDirection(motor, FORWARD);
+        setMotorSpeed(motor, speed);
+    }
+    else if (speed < 0)
+    {
+        setMotorDirection(motor, BACKWARD);
+        setMotorSpeed(motor, abs(speed));
+    }
+    else
+    {
+        setMotorDirection(motor, HALT);
+        setMotorSpeed(motor, 0);
+    }
+
+    sendToMotor(motor);
 }
