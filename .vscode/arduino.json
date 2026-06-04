@@ -1,5 +1,0 @@
-{
-    "board": "arduino:renesas_uno:nanor4",
-    "sketch": "ETHAuto.ino",
-    "port": "COM4"
-}

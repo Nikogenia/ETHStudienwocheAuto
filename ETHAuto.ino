@@ -58,17 +58,13 @@ void drivePD(double error, double dt)
 
 void searchForLineLeft()
 {
-    if (millis() - searchLineStart < SEARCH_LINE_TIMEOUT)
-    {
-        return;
-    }
     sendSignedMotorCommand(
         motorLeft,
-        -ROTATION_SPEED);
+        ROTATION_SPEED);
 
     sendSignedMotorCommand(
         motorRight,
-        ROTATION_SPEED);
+        -ROTATION_SPEED);
 
     delay(MOTOR_TIMEOUT);
 
@@ -85,17 +81,13 @@ void searchForLineLeft()
 
 void searchForLineRight()
 {
-    if (millis() - searchLineStart < SEARCH_LINE_TIMEOUT)
-    {
-        return;
-    }
     sendSignedMotorCommand(
         motorLeft,
-        ROTATION_SPEED);
+        -ROTATION_SPEED);
 
     sendSignedMotorCommand(
         motorRight,
-        -ROTATION_SPEED);
+        ROTATION_SPEED);
 
     delay(MOTOR_TIMEOUT);
 
@@ -153,7 +145,7 @@ void decideIntersection()
     }
     else if (currentJunction.right)
     {
-        state = SEARCH_LINE_RIGHT;
+        state = SEARCH_LINE_LEFT;
         searchLineStart = millis();
     }
     else
@@ -301,7 +293,9 @@ void loop()
 
     else if (state == SEARCH_LINE_LEFT || state == SEARCH_LINE_RIGHT)
     {
-        if (!isAllWhite(sensorValues))
+        unsigned long turnTime = millis() - searchLineStart;
+        if (turnTime > SEARCH_LINE_TIMEOUT &&
+            (turnTime < BACK_START || turnTime > BACK_END) && !isAllWhite(sensorValues))
         {
             state = FOLLOW_LINE;
         }

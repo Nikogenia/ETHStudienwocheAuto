@@ -46,20 +46,23 @@ struct Junction
 };
 
 const int WEIGHTS[6] = {-100, -60, -30, 30, 60, 100};
-const int BASE_SPEED = 100;
-const int ROTATION_SPEED = 150;
+const int BASE_SPEED = 110;
+const int ROTATION_SPEED = 160;
 const int SHARP_TURN_SPEED = 65;
 
 double previousError = 0.0;
 unsigned long lastLoopMicros = 0;
 
-const double KP = 0.8;
-const double KD = 0.2;
+const double KP = 2;
+const double KD = 0.8;
 
 const unsigned long BLACK_HOLD_TIME = 300;
 const unsigned long INTERSECTION_CENTER_TIME = 300;
-const unsigned long SEARCH_LINE_TIMEOUT = 00;
+const unsigned long SEARCH_LINE_TIMEOUT = 400;
 const unsigned long MOTOR_TIMEOUT = 30;
+const unsigned long INTERSECTION_TIMEOUT = 1000;
+const unsigned long BACK_START = 1000;
+const unsigned long BACK_END = 1700;
 Junction currentJunction = {false, false, false};
 unsigned int intersectionStart = 0;
 unsigned int allBlackStart = 0;
