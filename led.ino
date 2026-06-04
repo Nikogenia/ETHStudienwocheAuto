@@ -17,9 +17,6 @@ void showRobotState(RobotState currentState)
     case FOLLOW_LINE:
         ledColor(0, 255, 0);
         break;
-    case SHARP_TURN:
-        ledColor(255, 255, 0);
-        break;
     case INTERSECTION:
         ledColor(255, 0, 255);
         break;

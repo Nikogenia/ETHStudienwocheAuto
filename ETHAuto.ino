@@ -43,7 +43,7 @@ void drivePD(double error, double dt)
         motorRight,
         right);
 
-    delay(10);
+    delay(MOTOR_TIMEOUT);
 
     sendSignedMotorCommand(
         motorLeft,
@@ -53,7 +53,7 @@ void drivePD(double error, double dt)
         motorRight,
         0);
 
-    delay(10);
+    delay(MOTOR_TIMEOUT);
 }
 
 void searchForLineLeft()
@@ -118,12 +118,14 @@ void checkIntersection(int *sensorValues)
     }
     else if (isSensorBlack(sensorValues[0]) &&
              isSensorBlack(sensorValues[1]) &&
-             isSensorBlack(sensorValues[2]))
+             isSensorBlack(sensorValues[2]) &&
+             isSensorBlack(sensorValues[3]))
     {
         currentJunction.left = true;
         startIntersection();
     }
-    else if (isSensorBlack(sensorValues[3]) &&
+    else if (isSensorBlack(sensorValues[2]) &&
+             isSensorBlack(sensorValues[3]) &&
              isSensorBlack(sensorValues[4]) &&
              isSensorBlack(sensorValues[5]))
     {
@@ -132,7 +134,7 @@ void checkIntersection(int *sensorValues)
     }
 }
 
-void decideIntersection()
+void decideIntersectionLefthand()
 {
     if (currentJunction.left)
     {
@@ -145,7 +147,7 @@ void decideIntersection()
     }
     else if (currentJunction.right)
     {
-        state = SEARCH_LINE_LEFT;
+        state = SEARCH_LINE_RIGHT;
         searchLineStart = millis();
     }
     else
@@ -164,7 +166,7 @@ void handleIntersection(int *sensorValues, double dt)
         {
             currentJunction.forward = true;
         }
-        decideIntersection();
+        decideIntersectionLefthand();
         return;
     }
 
@@ -255,10 +257,10 @@ void loop()
     }
 
     // ------------------
-    // FOLLOW LINE OR SHARP TURN
+    // FOLLOW LINE
     // ------------------
 
-    if (state == FOLLOW_LINE || state == SHARP_TURN)
+    if (state == FOLLOW_LINE)
     {
         long valueSum;
         long distanceSum;
@@ -294,8 +296,7 @@ void loop()
     else if (state == SEARCH_LINE_LEFT || state == SEARCH_LINE_RIGHT)
     {
         unsigned long turnTime = millis() - searchLineStart;
-        if (turnTime > SEARCH_LINE_TIMEOUT &&
-            (turnTime < BACK_START || turnTime > BACK_END) && !isAllWhite(sensorValues))
+        if (turnTime > SEARCH_LINE_TIMEOUT && !isAllWhite(sensorValues))
         {
             state = FOLLOW_LINE;
         }
