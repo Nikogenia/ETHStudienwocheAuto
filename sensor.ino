@@ -32,6 +32,12 @@ int countBlackSensors(int *sensorValues)
     return blackCount;
 }
 
+bool isCenterLineVisible(int *sensorValues)
+{
+    return isSensorBlack(sensorValues[2]) ||
+           isSensorBlack(sensorValues[3]);
+}
+
 bool isIntersectionCandidate(int *sensorValues)
 {
     int blackCount = countBlackSensors(sensorValues);
@@ -46,7 +52,7 @@ bool isIntersectionCandidate(int *sensorValues)
         return false;
     }
 
-    return isSensorBlack(sensorValues[2]) || isSensorBlack(sensorValues[3]);
+    return isCenterLineVisible(sensorValues);
 }
 
 Junction readJunctionSnapshot(int *sensorValues)

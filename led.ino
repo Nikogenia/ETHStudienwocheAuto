@@ -23,6 +23,9 @@ void showRobotState(RobotState currentState)
     case SHARP_TURN:
         ledColor(255, 0, 128);
         break;
+    case GAP_CHECK:
+        ledColor(0, 128, 255);
+        break;
     case SEARCH_LINE:
         ledColor(0, 0, 255);
         break;

@@ -116,21 +116,95 @@ void searchForLine()
     }
 }
 
+const char *classifyJunction(const Junction &junction)
+{
+    if (!junction.left && !junction.forward && !junction.right)
+    {
+        return "U-TURN / DEAD END";
+    }
+
+    if (junction.forward && junction.left && junction.right)
+    {
+        return "CROSSROAD";
+    }
+
+    if ((junction.left && junction.right) ||
+        (junction.forward && (junction.left || junction.right)))
+    {
+        return "T-JUNCTION";
+    }
+
+    if (junction.left || junction.right)
+    {
+        return "CORNER";
+    }
+
+    return "STRAIGHT";
+}
+
+void enterGapCheck(RobotState fallbackState)
+{
+    resumeStateAfterGapCheck = fallbackState;
+    gapCheckStartMillis = millis();
+    intersectionCandidateStartMillis = 0;
+    intersectionArmed = false;
+    state = GAP_CHECK;
+}
+
 void enterIntersectionState()
 {
     state = INTERSECTION;
     intersectionStartMillis = millis();
+    intersectionPhaseStartMillis = millis();
+    intersectionScanPhase = INTERSECTION_SCAN_CENTER;
     intersectionLogged = false;
+    currentJunction = {false, false, false};
     previousError = 0.0;
     lastDirection = 0;
+    intersectionCandidateStartMillis = 0;
+}
+
+void handleGapCheck(int *sensorValues)
+{
+    if (!isAllWhite(sensorValues))
+    {
+        state = resumeStateAfterGapCheck;
+        gapCheckStartMillis = 0;
+        return;
+    }
+
+    unsigned long elapsed = millis() - gapCheckStartMillis;
+
+    sendSignedMotorCommand(
+        motorLeft,
+        GAP_CHECK_SPEED);
+
+    sendSignedMotorCommand(
+        motorRight,
+        GAP_CHECK_SPEED);
+
+    if (elapsed >= GAP_CHECK_TIME)
+    {
+        sendSignedMotorCommand(motorLeft, 0);
+        sendSignedMotorCommand(motorRight, 0);
+        enterIntersectionState();
+    }
+}
+
+void startNextIntersectionPhase(IntersectionScanPhase nextPhase)
+{
+    intersectionScanPhase = nextPhase;
+    intersectionPhaseStartMillis = millis();
 }
 
 void handleIntersectionState(int *sensorValues)
 {
-    unsigned long elapsed = millis() - intersectionStartMillis;
-
-    if (elapsed < INTERSECTION_ADVANCE_TIME)
+    unsigned long elapsed = millis() - intersectionPhaseStartMillis;
+    int advanceTimeCenter = INTERSECTION_ADVANCE_TIME;
+    
+    switch (intersectionScanPhase)
     {
+    case INTERSECTION_SCAN_CENTER:
         sendSignedMotorCommand(
             motorLeft,
             INTERSECTION_CENTER_SPEED);
@@ -139,32 +213,135 @@ void handleIntersectionState(int *sensorValues)
             motorRight,
             INTERSECTION_CENTER_SPEED);
 
+        if (gapCheckStartMillis != 0)
+        {
+            advanceTimeCenter -= GAP_CHECK_TIME;
+        }
+
+        if (elapsed >= advanceTimeCenter)
+        {
+            sendSignedMotorCommand(motorLeft, 0);
+            sendSignedMotorCommand(motorRight, 0);
+            gapCheckStartMillis = 0;
+            state = STOPPED;
+            // currentJunction.forward = isCenterLineVisible(sensorValues);
+            // startNextIntersectionPhase(INTERSECTION_SCAN_LEFT_OUT);
+        }
+        return;
+
+    case INTERSECTION_SCAN_LEFT_OUT:
+        sendSignedMotorCommand(
+            motorLeft,
+            -INTERSECTION_PROBE_SPEED);
+
+        sendSignedMotorCommand(
+            motorRight,
+            INTERSECTION_PROBE_SPEED);
+
+        if (!isAllWhite(sensorValues))
+        {
+            currentJunction.left = true;
+        }
+
+        if (elapsed >= INTERSECTION_PROBE_TIME)
+        {
+            sendSignedMotorCommand(motorLeft, 0);
+            sendSignedMotorCommand(motorRight, 0);
+            startNextIntersectionPhase(INTERSECTION_SCAN_LEFT_BACK);
+        }
+        return;
+
+    case INTERSECTION_SCAN_LEFT_BACK:
+        sendSignedMotorCommand(
+            motorLeft,
+            INTERSECTION_PROBE_SPEED);
+
+        sendSignedMotorCommand(
+            motorRight,
+            -INTERSECTION_PROBE_SPEED);
+
+        if (elapsed >= INTERSECTION_PROBE_TIME)
+        {
+            sendSignedMotorCommand(motorLeft, 0);
+            sendSignedMotorCommand(motorRight, 0);
+            startNextIntersectionPhase(INTERSECTION_SCAN_RIGHT_OUT);
+        }
+        return;
+
+    case INTERSECTION_SCAN_RIGHT_OUT:
+        sendSignedMotorCommand(
+            motorLeft,
+            INTERSECTION_PROBE_SPEED);
+
+        sendSignedMotorCommand(
+            motorRight,
+            -INTERSECTION_PROBE_SPEED);
+
+        if (!isAllWhite(sensorValues))
+        {
+            currentJunction.right = true;
+        }
+
+        if (elapsed >= INTERSECTION_PROBE_TIME)
+        {
+            sendSignedMotorCommand(motorLeft, 0);
+            sendSignedMotorCommand(motorRight, 0);
+            startNextIntersectionPhase(INTERSECTION_SCAN_RIGHT_BACK);
+        }
+        return;
+
+    case INTERSECTION_SCAN_RIGHT_BACK:
+        sendSignedMotorCommand(
+            motorLeft,
+            -INTERSECTION_PROBE_SPEED);
+
+        sendSignedMotorCommand(
+            motorRight,
+            INTERSECTION_PROBE_SPEED);
+
+        if (elapsed >= INTERSECTION_PROBE_TIME)
+        {
+            sendSignedMotorCommand(motorLeft, 0);
+            sendSignedMotorCommand(motorRight, 0);
+            startNextIntersectionPhase(INTERSECTION_SCAN_DONE);
+        }
+        return;
+
+    case INTERSECTION_SCAN_DONE:
+    default:
+        if (!intersectionLogged)
+        {
+            printJunction(currentJunction);
+            Serial.println(classifyJunction(currentJunction));
+            intersectionLogged = true;
+        }
+
+        if (currentJunction.forward)
+        {
+            state = FOLLOW_LINE;
+        }
+        else
+        {
+            if (currentJunction.left)
+            {
+                lastDirection = -1;
+            }
+            else if (currentJunction.right)
+            {
+                lastDirection = 1;
+            }
+            else
+            {
+                lastDirection = 0;
+            }
+
+            state = SEARCH_LINE;
+        }
+
+        intersectionCandidateStartMillis = 0;
+        intersectionArmed = false;
         return;
     }
-
-    sendSignedMotorCommand(
-        motorLeft,
-        0);
-
-    sendSignedMotorCommand(
-        motorRight,
-        0);
-
-    if (elapsed < INTERSECTION_ADVANCE_TIME + INTERSECTION_SETTLE_TIME)
-    {
-        return;
-    }
-
-    if (!intersectionLogged)
-    {
-        currentJunction = readJunctionSnapshot(sensorValues);
-        printJunction(currentJunction);
-        intersectionLogged = true;
-    }
-
-    state = FOLLOW_LINE;
-    intersectionCandidateStartMillis = 0;
-    intersectionArmed = true;
 }
 
 void calibrate()
@@ -226,12 +403,30 @@ void loop()
 
         return;
     }
+    if (state == GAP_CHECK)
+    {
+        handleGapCheck(sensorValues);
+        showRobotState(state);
+        return;
+    }
 
-    bool intersectionCandidate = false;
+    bool allWhite = isAllWhite(sensorValues);
 
     if (state != CALIBRATION && state != STOPPED)
     {
-        intersectionCandidate = isIntersectionCandidate(sensorValues);
+        if (allWhite)
+        {
+            if (state != GAP_CHECK)
+            {
+                enterGapCheck(state);
+            }
+
+            handleGapCheck(sensorValues);
+            showRobotState(state);
+            return;
+        }
+
+        bool intersectionCandidate = isIntersectionCandidate(sensorValues);
 
         if (intersectionCandidate)
         {
@@ -267,15 +462,6 @@ void loop()
         handleIntersectionState(sensorValues);
         showRobotState(state);
         return;
-    }
-
-    // ------------------
-    // LOST LINE
-    // ------------------
-
-    if (state != CALIBRATION && isAllWhite(sensorValues))
-    {
-        state = SEARCH_LINE;
     }
 
     // ------------------
@@ -410,7 +596,6 @@ void loop()
     }
 
     showRobotState(state);
-
 }
 
 /*
