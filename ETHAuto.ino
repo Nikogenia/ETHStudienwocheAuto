@@ -1,57 +1,5 @@
 #include "constants.h"
 
-motor motorLeft, motorRight;
-
-const double SHARP_TURN_DISTANCE = 60.0;
-const double MAX_SENSOR_DISTANCE = 100.0;
-
-void driveSharpTurn(double error, double distanceFromCenter)
-{
-    double normalizedDistance =
-        constrain(
-            distanceFromCenter /
-                MAX_SENSOR_DISTANCE,
-            0.0,
-            1.0);
-
-    int outsideSpeed =
-        constrain(
-            BASE_SPEED +
-                (int)(BASE_SPEED * 0.20 * normalizedDistance),
-            0,
-            255);
-
-    int insideSpeed =
-        BASE_SPEED -
-        (int)(BASE_SPEED * (0.85 + 0.35 * normalizedDistance));
-
-    if (insideSpeed > 255)
-        insideSpeed = 255;
-
-    if (error < 0)
-    {
-        sendSignedMotorCommand(
-            motorLeft,
-            insideSpeed);
-
-        sendSignedMotorCommand(
-            motorRight,
-            outsideSpeed);
-    }
-    else
-    {
-        sendSignedMotorCommand(
-            motorLeft,
-            outsideSpeed);
-
-        sendSignedMotorCommand(
-            motorRight,
-            insideSpeed);
-    }
-
-    previousError = error;
-}
-
 void setup()
 {
     pinMode(LED_BUILTIN, OUTPUT);
@@ -97,9 +45,46 @@ void drivePD(double error, double dt)
         right);
 }
 
+void driveSharpPD(double error, double dt)
+{
+    double derivative =
+        (error - previousError) / dt;
+
+    double turn =
+        KP * error +
+        KD * derivative;
+
+    previousError = error;
+
+    int left = BASE_SPEED;
+    int right = BASE_SPEED;
+
+    if (turn > 0)
+    {
+        left = -SHARP_TURN_SPEED - ((int)turn / 3);
+        right = BASE_SPEED + (int)turn;
+    }
+    else
+    {
+        left = BASE_SPEED - (int)turn;
+        right = -SHARP_TURN_SPEED + ((int)turn / 3);
+    }
+
+    left = constrain(left, -255, 255);
+    right = constrain(right, -255, 255);
+
+    sendSignedMotorCommand(
+        motorLeft,
+        left);
+
+    sendSignedMotorCommand(
+        motorRight,
+        right);
+}
+
 void searchForLine()
 {
-    if (lastKnownError < 0)
+    if (lastDirection < 0)
     {
         sendSignedMotorCommand(
             motorLeft,
@@ -108,17 +93,31 @@ void searchForLine()
         sendSignedMotorCommand(
             motorRight,
             SEARCH_SPEED);
+    }
+    else if (lastDirection > 0)
+    {
+        sendSignedMotorCommand(
+            motorLeft,
+            SEARCH_SPEED);
+
+        sendSignedMotorCommand(
+            motorRight,
+            -SEARCH_SPEED);
     }
     else
     {
         sendSignedMotorCommand(
             motorLeft,
-            SEARCH_SPEED);
+            -SEARCH_SPEED);
 
         sendSignedMotorCommand(
             motorRight,
             -SEARCH_SPEED);
     }
+}
+
+void calibrate()
+{
 }
 
 void loop()
@@ -181,16 +180,16 @@ void loop()
     // LOST LINE
     // ------------------
 
-    if (isAllWhite(sensorValues))
+    if (state != CALIBRATION && isAllWhite(sensorValues))
     {
         state = SEARCH_LINE;
     }
 
     // ------------------
-    // FOLLOW LINE
+    // CALIBRATION
     // ------------------
 
-    if (state == FOLLOW_LINE)
+    if (state == CALIBRATION)
     {
         long valueSum;
         long distanceSum;
@@ -205,16 +204,98 @@ void loop()
                 sensorValues,
                 distanceSum);
 
-        lastKnownError = error;
-
-        if (distanceFromCenter > SHARP_TURN_DISTANCE)
+        if (calibrationStartMillis == 0)
         {
-            driveSharpTurn(
-                error,
-                distanceFromCenter);
+            calibrationStartMillis = millis();
+        }
+
+        sendSignedMotorCommand(
+            motorLeft,
+            -SEARCH_SPEED);
+
+        sendSignedMotorCommand(
+            motorRight,
+            SEARCH_SPEED);
+
+        if (fabs(error) > DIRECTION_THRESHOLD ||
+            distanceFromCenter > SHARP_TURN_THRESHOLD)
+        {
+            calibrationLeftStart = true;
+        }
+
+        if (calibrationLeftStart &&
+            fabs(error) <= DIRECTION_THRESHOLD &&
+            distanceFromCenter <= SHARP_TURN_THRESHOLD)
+        {
+            calibrationRotationMillis =
+                millis() - calibrationStartMillis;
+
+            Serial.print("Calibration rotation time (ms): ");
+            Serial.println(calibrationRotationMillis);
+
+            calibrationLeftStart = false;
+            calibrationStartMillis = 0;
+            previousError = 0.0;
+            lastDirection = 0;
+            state = SEARCH_LINE;
+            showRobotState(state);
+            return;
+        }
+
+        showRobotState(state);
+        return;
+    }
+
+    // ------------------
+    // FOLLOW LINE OR SHARP TURN
+    // ------------------
+
+    if (state == FOLLOW_LINE || state == SHARP_TURN)
+    {
+        long valueSum;
+        long distanceSum;
+
+        double error =
+            computeLineError(
+                sensorValues,
+                valueSum);
+
+        double distanceFromCenter =
+            computeLineDistanceFromCenter(
+                sensorValues,
+                distanceSum);
+
+        if (error > DIRECTION_THRESHOLD)
+        {
+            lastDirection = 1;
+            lastDirectionStart = millis();
+        }
+        else if (error < -DIRECTION_THRESHOLD)
+        {
+            lastDirection = -1;
+            lastDirectionStart = millis();
         }
         else
         {
+            if (millis() - lastDirectionStart >
+                LAST_DIRECTION_TIMEOUT)
+            {
+                lastDirection = 0;
+            }
+        }
+
+        unsigned long currentMillis = millis();
+        addErrorSample(error, currentMillis);
+        double errorSum = getErrorSum200ms(currentMillis);
+
+        if (fabs(errorSum) > SHARP_TURN_THRESHOLD)
+        {
+            state = SHARP_TURN;
+            driveSharpPD(error, dt);
+        }
+        else
+        {
+            state = FOLLOW_LINE;
             drivePD(error, dt);
         }
     }
@@ -236,7 +317,6 @@ void loop()
     }
 
     showRobotState(state);
-
 }
 
 /*

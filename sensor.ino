@@ -85,3 +85,27 @@ bool isAllBlack(int *sensorValues)
 
     return true;
 }
+
+void addErrorSample(double error, unsigned long currentMillis)
+{
+    errorHistory[errorHistoryIndex].error = error;
+    errorHistory[errorHistoryIndex].timestamp = currentMillis;
+    errorHistoryIndex = (errorHistoryIndex + 1) % ERROR_HISTORY_SIZE;
+}
+
+double getErrorSum200ms(unsigned long currentMillis)
+{
+    double sum = 0;
+    unsigned long windowStart = currentMillis - ERROR_HISTORY_WINDOW;
+
+    for (int i = 0; i < ERROR_HISTORY_SIZE; i++)
+    {
+        if (errorHistory[i].timestamp >= windowStart &&
+            errorHistory[i].timestamp <= currentMillis)
+        {
+            sum += errorHistory[i].error;
+        }
+    }
+
+    return sum;
+}
