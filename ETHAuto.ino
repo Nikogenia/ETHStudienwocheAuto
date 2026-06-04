@@ -84,36 +84,13 @@ void driveSharpPD(double error, double dt)
 
 void searchForLine()
 {
-    if (lastDirection < 0)
-    {
-        sendSignedMotorCommand(
-            motorLeft,
-            -SEARCH_SPEED);
+    sendSignedMotorCommand(
+        motorLeft,
+        -SEARCH_SPEED);
 
-        sendSignedMotorCommand(
-            motorRight,
-            SEARCH_SPEED);
-    }
-    else if (lastDirection > 0)
-    {
-        sendSignedMotorCommand(
-            motorLeft,
-            SEARCH_SPEED);
-
-        sendSignedMotorCommand(
-            motorRight,
-            -SEARCH_SPEED);
-    }
-    else
-    {
-        sendSignedMotorCommand(
-            motorLeft,
-            -SEARCH_SPEED);
-
-        sendSignedMotorCommand(
-            motorRight,
-            -SEARCH_SPEED);
-    }
+    sendSignedMotorCommand(
+        motorRight,
+        SEARCH_SPEED);
 }
 
 const char *classifyJunction(const Junction &junction)
@@ -153,15 +130,10 @@ void enterGapCheck(RobotState fallbackState)
 
 void enterIntersectionState()
 {
-    state = INTERSECTION;
-    intersectionStartMillis = millis();
-    intersectionPhaseStartMillis = millis();
-    intersectionScanPhase = INTERSECTION_SCAN_CENTER;
-    intersectionLogged = false;
-    currentJunction = {false, false, false};
-    previousError = 0.0;
-    lastDirection = 0;
+    state = SEARCH_LINE;
+    lastDirection = -1;
     intersectionCandidateStartMillis = 0;
+    intersectionArmed = false;
 }
 
 void handleGapCheck(int *sensorValues)
@@ -187,7 +159,9 @@ void handleGapCheck(int *sensorValues)
     {
         sendSignedMotorCommand(motorLeft, 0);
         sendSignedMotorCommand(motorRight, 0);
-        enterIntersectionState();
+        gapCheckStartMillis = 0;
+        state = SEARCH_LINE;
+        lastDirection = -1;
     }
 }
 
@@ -201,7 +175,7 @@ void handleIntersectionState(int *sensorValues)
 {
     unsigned long elapsed = millis() - intersectionPhaseStartMillis;
     int advanceTimeCenter = INTERSECTION_ADVANCE_TIME;
-    
+
     switch (intersectionScanPhase)
     {
     case INTERSECTION_SCAN_CENTER:
@@ -451,17 +425,6 @@ void loop()
                 intersectionArmed = false;
             }
         }
-    }
-
-    // ------------------
-    // INTERSECTION
-    // ------------------
-
-    if (state == INTERSECTION)
-    {
-        handleIntersectionState(sensorValues);
-        showRobotState(state);
-        return;
     }
 
     // ------------------

@@ -47,12 +47,7 @@ bool isIntersectionCandidate(int *sensorValues)
         return false;
     }
 
-    if (blackCount < INTERSECTION_BLACK_COUNT_THRESHOLD)
-    {
-        return false;
-    }
-
-    return isCenterLineVisible(sensorValues);
+    return blackCount >= INTERSECTION_BLACK_COUNT_THRESHOLD;
 }
 
 Junction readJunctionSnapshot(int *sensorValues)
