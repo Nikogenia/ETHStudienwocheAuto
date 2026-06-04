@@ -12,6 +12,72 @@ int *readSensor()
     return values;
 }
 
+bool isSensorBlack(int sensorValue)
+{
+    return sensorValue <= BLACK_THRESHOLD;
+}
+
+int countBlackSensors(int *sensorValues)
+{
+    int blackCount = 0;
+
+    for (int i = 0; i < 6; i++)
+    {
+        if (isSensorBlack(sensorValues[i]))
+        {
+            blackCount++;
+        }
+    }
+
+    return blackCount;
+}
+
+bool isIntersectionCandidate(int *sensorValues)
+{
+    int blackCount = countBlackSensors(sensorValues);
+
+    if (isAllBlack(sensorValues))
+    {
+        return false;
+    }
+
+    if (blackCount < INTERSECTION_BLACK_COUNT_THRESHOLD)
+    {
+        return false;
+    }
+
+    return isSensorBlack(sensorValues[2]) || isSensorBlack(sensorValues[3]);
+}
+
+Junction readJunctionSnapshot(int *sensorValues)
+{
+    Junction junction;
+
+    junction.left =
+        isSensorBlack(sensorValues[0]) ||
+        isSensorBlack(sensorValues[1]);
+
+    junction.forward =
+        isSensorBlack(sensorValues[2]) ||
+        isSensorBlack(sensorValues[3]);
+
+    junction.right =
+        isSensorBlack(sensorValues[4]) ||
+        isSensorBlack(sensorValues[5]);
+
+    return junction;
+}
+
+void printJunction(const Junction &junction)
+{
+    Serial.print("Junction: L=");
+    Serial.print(junction.left ? "1" : "0");
+    Serial.print(" F=");
+    Serial.print(junction.forward ? "1" : "0");
+    Serial.print(" R=");
+    Serial.println(junction.right ? "1" : "0");
+}
+
 double computeLineError(
     int *sensorValues,
     long &valueSum)
@@ -77,7 +143,7 @@ bool isAllBlack(int *sensorValues)
 {
     for (int i = 0; i < 6; i++)
     {
-        if (sensorValues[i] > BLACK_THRESHOLD)
+        if (!isSensorBlack(sensorValues[i]))
         {
             return false;
         }

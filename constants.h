@@ -38,15 +38,26 @@ enum RobotState
     INTERSECTION,
 };
 
+struct Junction
+{
+    bool left;
+    bool forward;
+    bool right;
+};
 const int WEIGHTS[6] = {-100, -60, -20, 20, 60, 100};
-const int BASE_SPEED = 170;
+const int BASE_SPEED = 160;
 const int SEARCH_SPEED = 100;
 const int SHARP_TURN_SPEED = 65;
-const unsigned long MOTOR_ACCEL_LIMIT_PER_SECOND = 600;
+const unsigned long MOTOR_ACCEL_LIMIT_PER_SECOND = 1000;
 
 double previousError = 0.0;
 byte lastDirection = 0;
 
+const unsigned long INTERSECTION_HOLD_TIME = 60;
+const unsigned long INTERSECTION_ADVANCE_TIME = 600;
+const unsigned long INTERSECTION_SETTLE_TIME = 80;
+const int INTERSECTION_BLACK_COUNT_THRESHOLD = 4;
+const int INTERSECTION_CENTER_SPEED = 120;
 unsigned long lastLoopMicros = 0;
 unsigned long allBlackStart = 0;
 unsigned long lastDirectionStart = 0;
@@ -54,18 +65,23 @@ unsigned long calibrationStartMillis = 0;
 unsigned long calibrationRotationMillis = 0;
 bool calibrationLeftStart = false;
 
-const double KP = 8;
-const double KD = 1.5;
+const double KP = 3;
+const double KD = 0.6;
 
 const unsigned long BLACK_HOLD_TIME = 300;
-const unsigned long LAST_DIRECTION_TIMEOUT = 100;
+const unsigned long LAST_DIRECTION_TIMEOUT = 200;
+unsigned long intersectionCandidateStartMillis = 0;
+unsigned long intersectionStartMillis = 0;
+bool intersectionArmed = false;
+bool intersectionLogged = false;
+Junction currentJunction = {false, false, false};
 
-const int WHITE_THRESHOLD = 500;
-const int BLACK_THRESHOLD = 400;
-const double SHARP_TURN_THRESHOLD = 1200.0;
-const double DIRECTION_THRESHOLD = 20.0;
-const unsigned long ERROR_HISTORY_WINDOW = 100; // milliseconds
-const int ERROR_HISTORY_SIZE = 1000;
+const int WHITE_THRESHOLD = 520;
+const int BLACK_THRESHOLD = 470;
+const double SHARP_TURN_THRESHOLD = 200.0;
+const double DIRECTION_THRESHOLD = 6.0;
+const unsigned long ERROR_HISTORY_WINDOW = 150; // milliseconds
+const int ERROR_HISTORY_SIZE = 800;
 
 struct ErrorSample
 {
@@ -80,8 +96,6 @@ struct motor
 {
     byte speed = 0;
     Direction direction = HALT;
-    int signedSpeed = 0;
-    unsigned long lastCommandMicros = 0;
     int enablePin;
     int directionPin1;
     int directionPin2;

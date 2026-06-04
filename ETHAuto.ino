@@ -116,6 +116,57 @@ void searchForLine()
     }
 }
 
+void enterIntersectionState()
+{
+    state = INTERSECTION;
+    intersectionStartMillis = millis();
+    intersectionLogged = false;
+    previousError = 0.0;
+    lastDirection = 0;
+}
+
+void handleIntersectionState(int *sensorValues)
+{
+    unsigned long elapsed = millis() - intersectionStartMillis;
+
+    if (elapsed < INTERSECTION_ADVANCE_TIME)
+    {
+        sendSignedMotorCommand(
+            motorLeft,
+            INTERSECTION_CENTER_SPEED);
+
+        sendSignedMotorCommand(
+            motorRight,
+            INTERSECTION_CENTER_SPEED);
+
+        return;
+    }
+
+    sendSignedMotorCommand(
+        motorLeft,
+        0);
+
+    sendSignedMotorCommand(
+        motorRight,
+        0);
+
+    if (elapsed < INTERSECTION_ADVANCE_TIME + INTERSECTION_SETTLE_TIME)
+    {
+        return;
+    }
+
+    if (!intersectionLogged)
+    {
+        currentJunction = readJunctionSnapshot(sensorValues);
+        printJunction(currentJunction);
+        intersectionLogged = true;
+    }
+
+    state = FOLLOW_LINE;
+    intersectionCandidateStartMillis = 0;
+    intersectionArmed = true;
+}
+
 void calibrate()
 {
 }
@@ -173,6 +224,48 @@ void loop()
             motorRight,
             0);
 
+        return;
+    }
+
+    bool intersectionCandidate = false;
+
+    if (state != CALIBRATION && state != STOPPED)
+    {
+        intersectionCandidate = isIntersectionCandidate(sensorValues);
+
+        if (intersectionCandidate)
+        {
+            if (intersectionCandidateStartMillis == 0)
+            {
+                intersectionCandidateStartMillis = millis();
+            }
+
+            if (!intersectionArmed &&
+                millis() - intersectionCandidateStartMillis >= INTERSECTION_HOLD_TIME)
+            {
+                intersectionArmed = true;
+                enterIntersectionState();
+            }
+        }
+        else
+        {
+            intersectionCandidateStartMillis = 0;
+
+            if (state != INTERSECTION)
+            {
+                intersectionArmed = false;
+            }
+        }
+    }
+
+    // ------------------
+    // INTERSECTION
+    // ------------------
+
+    if (state == INTERSECTION)
+    {
+        handleIntersectionState(sensorValues);
+        showRobotState(state);
         return;
     }
 
@@ -317,6 +410,7 @@ void loop()
     }
 
     showRobotState(state);
+
 }
 
 /*
