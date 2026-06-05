@@ -34,7 +34,14 @@ enum RobotState
     INTERSECTION,
     SEARCH_LINE_LEFT,
     SEARCH_LINE_RIGHT,
+    SEARCH_LINE_RECOVERY,
     STOPPED,
+};
+
+enum IntersectionDecisionMode
+{
+    LEFT_HAND,
+    TREMAUX,
 };
 
 struct Junction
@@ -45,27 +52,34 @@ struct Junction
 };
 
 const int WEIGHTS[6] = {-100, -60, -30, 30, 60, 100};
-const int BASE_SPEED = 110;
+const int BASE_SPEED = 120;
 const int ROTATION_SPEED = 160;
 
 double previousError = 0.0;
 unsigned long lastLoopMicros = 0;
 
-const double KP = 3;
-const double KD = 1.5;
+const double KP = 2;
+const double KD = 0.8;
 
 const unsigned long BLACK_HOLD_TIME = 600;
-const unsigned long INTERSECTION_CENTER_TIME = 300;
-const unsigned long SEARCH_LINE_TIMEOUT = 450;
+const unsigned long INTERSECTION_CENTER_TIME = 200;
+const unsigned long SEARCH_LINE_TIMEOUT = 350;
+const unsigned long SEARCH_LINE_RECOVERY_TIME = 200;
+const unsigned long FOLLOW_LINE_INTERSECTION_LOCKOUT = 500;
 const unsigned long MOTOR_TIMEOUT = 30;
 const unsigned long INTERSECTION_TIMEOUT = 1000;
-Junction currentJunction = {false, false, false};
-unsigned int intersectionStart = 0;
-unsigned int allBlackStart = 0;
-unsigned int searchLineStart = 0;
+const IntersectionDecisionMode INTERSECTION_DECISION_MODE = LEFT_HAND;
 
-const int WHITE_THRESHOLD = 450;
-const int BLACK_THRESHOLD = 450;
+const int WHITE_THRESHOLD = 420;
+const int BLACK_THRESHOLD = 420;
+
+Junction currentJunction = {false, false, false};
+unsigned long intersectionStart = 0;
+unsigned long allBlackStart = 0;
+unsigned long searchLineStart = 0;
+bool restrictToLeft = false;
+unsigned long searchLineRecoveryStart = 0;
+unsigned long followLineIntersectionLockoutUntil = 0;
 
 struct motor
 {
@@ -76,7 +90,22 @@ struct motor
     int directionPin2;
 };
 
-RobotState state = SEARCH_LINE_LEFT;
+struct TremauxNode
+{
+    Junction junction;
+    byte nextBranchIndex;
+};
+
+const int TREMAUX_STACK_SIZE = 100;
+const byte TREMAUX_BRANCH_LEFT = 0;
+const byte TREMAUX_BRANCH_FORWARD = 1;
+const byte TREMAUX_BRANCH_RIGHT = 2;
+const byte TREMAUX_BRANCH_UTURN = 3;
+
+TremauxNode tremauxStack[TREMAUX_STACK_SIZE];
+int tremauxStackPointer = -1;
+
+RobotState state = FOLLOW_LINE;
 motor motorLeft, motorRight;
 
 #endif // CONSTANTS

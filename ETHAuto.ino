@@ -15,6 +15,21 @@ void setup()
     lastLoopMicros = micros();
 }
 
+void motorTimeout(int timeout = MOTOR_TIMEOUT)
+{
+    delay(timeout);
+
+    sendSignedMotorCommand(
+        motorLeft,
+        0);
+
+    sendSignedMotorCommand(
+        motorRight,
+        0);
+
+    delay(timeout);
+}
+
 void drivePD(double error, double dt)
 {
     double derivative =
@@ -43,17 +58,7 @@ void drivePD(double error, double dt)
         motorRight,
         right);
 
-    delay(MOTOR_TIMEOUT);
-
-    sendSignedMotorCommand(
-        motorLeft,
-        0);
-
-    sendSignedMotorCommand(
-        motorRight,
-        0);
-
-    delay(MOTOR_TIMEOUT);
+    motorTimeout(10);
 }
 
 void searchForLineLeft()
@@ -66,17 +71,7 @@ void searchForLineLeft()
         motorRight,
         -ROTATION_SPEED);
 
-    delay(MOTOR_TIMEOUT);
-
-    sendSignedMotorCommand(
-        motorLeft,
-        0);
-
-    sendSignedMotorCommand(
-        motorRight,
-        0);
-
-    delay(MOTOR_TIMEOUT);
+    motorTimeout();
 }
 
 void searchForLineRight()
@@ -89,17 +84,14 @@ void searchForLineRight()
         motorRight,
         ROTATION_SPEED);
 
-    delay(MOTOR_TIMEOUT);
+    motorTimeout();
+}
 
-    sendSignedMotorCommand(
-        motorLeft,
-        0);
-
-    sendSignedMotorCommand(
-        motorRight,
-        0);
-
-    delay(MOTOR_TIMEOUT);
+void startSearchRecovery()
+{
+    state = SEARCH_LINE_RECOVERY;
+    searchLineRecoveryStart = millis();
+    searchLineStart = 0;
 }
 
 void startIntersection()
@@ -118,16 +110,15 @@ void checkIntersection(int *sensorValues)
     }
     else if (isSensorBlack(sensorValues[0]) &&
              isSensorBlack(sensorValues[1]) &&
-             isSensorBlack(sensorValues[2]) &&
-             isSensorBlack(sensorValues[3]))
+             isSensorBlack(sensorValues[2]))
     {
         currentJunction.left = true;
         startIntersection();
     }
-    else if (isSensorBlack(sensorValues[2]) &&
-             isSensorBlack(sensorValues[3]) &&
-             isSensorBlack(sensorValues[4]) &&
-             isSensorBlack(sensorValues[5]))
+    else if (
+        isSensorBlack(sensorValues[3]) &&
+        isSensorBlack(sensorValues[4]) &&
+        isSensorBlack(sensorValues[5]))
     {
         currentJunction.right = true;
         startIntersection();
@@ -139,6 +130,7 @@ void decideIntersectionLefthand()
     if (currentJunction.left)
     {
         state = SEARCH_LINE_LEFT;
+        restrictToLeft = true;
         searchLineStart = millis();
     }
     else if (currentJunction.forward)
@@ -153,9 +145,23 @@ void decideIntersectionLefthand()
     else
     {
         state = SEARCH_LINE_LEFT;
+        restrictToLeft = false;
     }
+
     currentJunction = {false, false, false};
     intersectionStart = 0;
+}
+
+void decideIntersection()
+{
+    if (INTERSECTION_DECISION_MODE == TREMAUX)
+    {
+        decideIntersectionTremaux();
+    }
+    else
+    {
+        decideIntersectionLefthand();
+    }
 }
 
 void handleIntersection(int *sensorValues, double dt)
@@ -166,8 +172,22 @@ void handleIntersection(int *sensorValues, double dt)
         {
             currentJunction.forward = true;
         }
-        decideIntersectionLefthand();
+        decideIntersection();
         return;
+    }
+
+    if (isSensorBlack(sensorValues[0]) &&
+        isSensorBlack(sensorValues[1]) &&
+        isSensorBlack(sensorValues[2]))
+    {
+        currentJunction.left = true;
+    }
+    else if (
+        isSensorBlack(sensorValues[3]) &&
+        isSensorBlack(sensorValues[4]) &&
+        isSensorBlack(sensorValues[5]))
+    {
+        currentJunction.right = true;
     }
 
     if (isAllWhite(sensorValues))
@@ -179,17 +199,7 @@ void handleIntersection(int *sensorValues, double dt)
             motorRight,
             BASE_SPEED);
 
-        delay(MOTOR_TIMEOUT);
-
-        sendSignedMotorCommand(
-            motorLeft,
-            0);
-
-        sendSignedMotorCommand(
-            motorRight,
-            0);
-
-        delay(MOTOR_TIMEOUT);
+        motorTimeout();
     }
     else
     {
@@ -226,8 +236,7 @@ void loop()
             allBlackStart = millis();
         }
 
-        if (millis() - allBlackStart >
-            BLACK_HOLD_TIME)
+        if (millis() - allBlackStart > BLACK_HOLD_TIME)
         {
             state = STOPPED;
         }
@@ -272,11 +281,14 @@ void loop()
         state = FOLLOW_LINE;
         drivePD(error, dt);
 
-        checkIntersection(sensorValues);
-
-        if (isAllWhite(sensorValues))
+        if (millis() >= followLineIntersectionLockoutUntil)
         {
-            startIntersection();
+            checkIntersection(sensorValues);
+
+            if (isAllWhite(sensorValues))
+            {
+                startIntersection();
+            }
         }
     }
 
@@ -298,7 +310,17 @@ void loop()
         unsigned long turnTime = millis() - searchLineStart;
         if (turnTime > SEARCH_LINE_TIMEOUT && !isAllWhite(sensorValues))
         {
-            state = FOLLOW_LINE;
+            if (restrictToLeft)
+            {
+                if (turnTime < 1100 || turnTime > 2400)
+                {
+                    startSearchRecovery();
+                }
+            }
+            else
+            {
+                startSearchRecovery();
+            }
         }
         else
         {
@@ -310,6 +332,42 @@ void loop()
             {
                 searchForLineRight();
             }
+        }
+    }
+
+    // ------------------
+    // SEARCH LINE RECOVERY
+    // ------------------
+
+    else if (state == SEARCH_LINE_RECOVERY)
+    {
+        if (millis() - searchLineRecoveryStart < SEARCH_LINE_RECOVERY_TIME)
+        {
+            sendSignedMotorCommand(
+                motorLeft,
+                -BASE_SPEED);
+
+            sendSignedMotorCommand(
+                motorRight,
+                -BASE_SPEED);
+
+            motorTimeout();
+        }
+        else
+        {
+            sendSignedMotorCommand(
+                motorLeft,
+                0);
+
+            sendSignedMotorCommand(
+                motorRight,
+                0);
+
+            followLineIntersectionLockoutUntil =
+                millis() + FOLLOW_LINE_INTERSECTION_LOCKOUT;
+
+            state = FOLLOW_LINE;
+            searchLineRecoveryStart = 0;
         }
     }
 

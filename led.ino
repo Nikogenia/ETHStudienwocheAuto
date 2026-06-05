@@ -26,6 +26,9 @@ void showRobotState(RobotState currentState)
     case SEARCH_LINE_RIGHT:
         ledColor(0, 128, 255);
         break;
+    case SEARCH_LINE_RECOVERY:
+        ledColor(0, 0, 255);
+        break;
     case STOPPED:
         ledColor(255, 0, 0);
         break;
