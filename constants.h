@@ -46,14 +46,14 @@ enum IntersectionDecisionMode
 
 struct Junction
 {
-    bool left;
-    bool forward;
-    bool right;
+    int left;
+    int forward;
+    int right;
 };
 
 const int WEIGHTS[6] = {-100, -60, -30, 30, 60, 100};
-const int BASE_SPEED = 120;
-const int ROTATION_SPEED = 160;
+const int BASE_SPEED = 110;
+const int ROTATION_SPEED = 130;
 
 double previousError = 0.0;
 unsigned long lastLoopMicros = 0;
@@ -62,22 +62,23 @@ const double KP = 2;
 const double KD = 0.8;
 
 const unsigned long BLACK_HOLD_TIME = 600;
-const unsigned long INTERSECTION_CENTER_TIME = 200;
-const unsigned long SEARCH_LINE_TIMEOUT = 350;
-const unsigned long SEARCH_LINE_RECOVERY_TIME = 200;
-const unsigned long FOLLOW_LINE_INTERSECTION_LOCKOUT = 500;
+const unsigned long INTERSECTION_CENTER_TIME = 180;
+const unsigned long SEARCH_LINE_TIMEOUT = 340;
+const unsigned long SEARCH_LINE_RECOVERY_TIME = 220;
+const unsigned long FOLLOW_LINE_INTERSECTION_LOCKOUT = 430;
 const unsigned long MOTOR_TIMEOUT = 30;
-const unsigned long INTERSECTION_TIMEOUT = 1000;
+const unsigned long INTERSECTION_TIMEOUT = 900;
 const IntersectionDecisionMode INTERSECTION_DECISION_MODE = LEFT_HAND;
 
 const int WHITE_THRESHOLD = 420;
 const int BLACK_THRESHOLD = 420;
 
-Junction currentJunction = {false, false, false};
+Junction currentJunction = {0, 0, 0};
 unsigned long intersectionStart = 0;
 unsigned long allBlackStart = 0;
 unsigned long searchLineStart = 0;
 bool restrictToLeft = false;
+bool restrictToLeftOrRight = false;
 unsigned long searchLineRecoveryStart = 0;
 unsigned long followLineIntersectionLockoutUntil = 0;
 

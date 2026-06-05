@@ -104,15 +104,15 @@ void checkIntersection(int *sensorValues)
 {
     if (isAllBlack(sensorValues))
     {
-        currentJunction.left = true;
-        currentJunction.right = true;
+        currentJunction.left = 1;
+        currentJunction.right = 1;
         startIntersection();
     }
     else if (isSensorBlack(sensorValues[0]) &&
              isSensorBlack(sensorValues[1]) &&
              isSensorBlack(sensorValues[2]))
     {
-        currentJunction.left = true;
+        currentJunction.left = 1;
         startIntersection();
     }
     else if (
@@ -120,7 +120,7 @@ void checkIntersection(int *sensorValues)
         isSensorBlack(sensorValues[4]) &&
         isSensorBlack(sensorValues[5]))
     {
-        currentJunction.right = true;
+        currentJunction.right = 1;
         startIntersection();
     }
 }
@@ -131,7 +131,14 @@ void decideIntersectionLefthand()
     {
         state = SEARCH_LINE_LEFT;
         restrictToLeft = true;
-        searchLineStart = millis();
+        if (currentJunction.left > 20)
+        {
+            searchLineStart = millis() - 200;
+        }
+        else
+        {
+            searchLineStart = millis();
+        }
     }
     else if (currentJunction.forward)
     {
@@ -140,7 +147,14 @@ void decideIntersectionLefthand()
     else if (currentJunction.right)
     {
         state = SEARCH_LINE_RIGHT;
-        searchLineStart = millis();
+        if (currentJunction.right > 20)
+        {
+            searchLineStart = millis() - 200;
+        }
+        else
+        {
+            searchLineStart = millis();
+        }
     }
     else
     {
@@ -148,7 +162,7 @@ void decideIntersectionLefthand()
         restrictToLeft = false;
     }
 
-    currentJunction = {false, false, false};
+    currentJunction = {0, 0, 0};
     intersectionStart = 0;
 }
 
@@ -170,7 +184,7 @@ void handleIntersection(int *sensorValues, double dt)
     {
         if (!isAllWhite(sensorValues))
         {
-            currentJunction.forward = true;
+            currentJunction.forward = 1;
         }
         decideIntersection();
         return;
@@ -180,14 +194,22 @@ void handleIntersection(int *sensorValues, double dt)
         isSensorBlack(sensorValues[1]) &&
         isSensorBlack(sensorValues[2]))
     {
-        currentJunction.left = true;
+        currentJunction.left += 1;
     }
     else if (
         isSensorBlack(sensorValues[3]) &&
         isSensorBlack(sensorValues[4]) &&
         isSensorBlack(sensorValues[5]))
     {
-        currentJunction.right = true;
+        currentJunction.right += 1;
+    }
+    else if (isSensorBlack(sensorValues[0]) && isSensorBlack(sensorValues[1] && !isSensorBlack(sensorValues[2])))
+    {
+        currentJunction.left += 6;
+    }
+    else if (!isSensorBlack(sensorValues[3]) && isSensorBlack(sensorValues[4]) && isSensorBlack(sensorValues[5]))
+    {
+        currentJunction.right += 6;
     }
 
     if (isAllWhite(sensorValues))
@@ -312,7 +334,7 @@ void loop()
         {
             if (restrictToLeft)
             {
-                if (turnTime < 1100 || turnTime > 2400)
+                if (turnTime < 1000 || turnTime > 2400)
                 {
                     startSearchRecovery();
                 }
