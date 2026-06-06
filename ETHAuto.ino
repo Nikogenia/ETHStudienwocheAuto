@@ -131,14 +131,7 @@ void decideIntersectionLefthand()
     {
         state = SEARCH_LINE_LEFT;
         restrictToLeft = true;
-        if (currentJunction.left > 20)
-        {
-            searchLineStart = millis() - 200;
-        }
-        else
-        {
-            searchLineStart = millis();
-        }
+        searchLineStart = millis();
     }
     else if (currentJunction.forward)
     {
@@ -147,19 +140,13 @@ void decideIntersectionLefthand()
     else if (currentJunction.right)
     {
         state = SEARCH_LINE_RIGHT;
-        if (currentJunction.right > 20)
-        {
-            searchLineStart = millis() - 200;
-        }
-        else
-        {
-            searchLineStart = millis();
-        }
+        searchLineStart = millis();
     }
     else
     {
         state = SEARCH_LINE_LEFT;
         restrictToLeft = false;
+        searchLineStart = millis();
     }
 
     currentJunction = {0, 0, 0};
@@ -221,7 +208,7 @@ void handleIntersection(int *sensorValues, double dt)
             motorRight,
             BASE_SPEED);
 
-        motorTimeout();
+        motorTimeout(10);
     }
     else
     {
@@ -300,7 +287,6 @@ void loop()
                 sensorValues,
                 valueSum);
 
-        state = FOLLOW_LINE;
         drivePD(error, dt);
 
         if (millis() >= followLineIntersectionLockoutUntil)

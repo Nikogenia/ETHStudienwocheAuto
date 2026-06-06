@@ -78,7 +78,6 @@ unsigned long intersectionStart = 0;
 unsigned long allBlackStart = 0;
 unsigned long searchLineStart = 0;
 bool restrictToLeft = false;
-bool restrictToLeftOrRight = false;
 unsigned long searchLineRecoveryStart = 0;
 unsigned long followLineIntersectionLockoutUntil = 0;
 
